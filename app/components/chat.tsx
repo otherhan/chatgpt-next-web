@@ -22,15 +22,11 @@ import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
 import BreakIcon from "../icons/break.svg";
 import SettingsIcon from "../icons/chat-settings.svg";
-import ClearIcon from "../icons/clear.svg";
-import CloseIcon from "../icons/close.svg";
+import DeleteIcon from "../icons/clear.svg";
 import PinIcon from "../icons/pin.svg";
 import EditIcon from "../icons/rename.svg";
 import ConfirmIcon from "../icons/confirm.svg";
 import CancelIcon from "../icons/cancel.svg";
-import EnablePluginIcon from "../icons/plugin_enable.svg";
-import DisablePluginIcon from "../icons/plugin_disable.svg";
-import UploadIcon from "../icons/upload.svg";
 
 import LightIcon from "../icons/light.svg";
 import DarkIcon from "../icons/dark.svg";
@@ -38,7 +34,6 @@ import AutoIcon from "../icons/auto.svg";
 import BottomIcon from "../icons/bottom.svg";
 import StopIcon from "../icons/pause.svg";
 import RobotIcon from "../icons/robot.svg";
-import CheckmarkIcon from "../icons/checkmark.svg";
 
 import {
   ChatMessage,
@@ -81,7 +76,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   CHAT_PAGE_SIZE,
-  LAST_INPUT_IMAGE_KEY,
   LAST_INPUT_KEY,
   Path,
   REQUEST_TIMEOUT_MS,
@@ -95,8 +89,6 @@ import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
 import { useAllModels } from "../utils/hooks";
-import Image from "next/image";
-import { ClientApi } from "../client/api";
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
@@ -336,10 +328,8 @@ function ClearContextDivider() {
 
 function ChatAction(props: {
   text: string;
-  icon?: JSX.Element;
-  innerNode?: JSX.Element;
+  icon: JSX.Element;
   onClick: () => void;
-  style?: React.CSSProperties;
 }) {
   const iconRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -364,29 +354,23 @@ function ChatAction(props: {
       className={`${styles["chat-input-action"]} clickable`}
       onClick={() => {
         props.onClick();
-        iconRef ? setTimeout(updateWidth, 1) : undefined;
+        setTimeout(updateWidth, 1);
       }}
-      onMouseEnter={props.icon ? updateWidth : undefined}
-      onTouchStart={props.icon ? updateWidth : undefined}
+      onMouseEnter={updateWidth}
+      onTouchStart={updateWidth}
       style={
-        props.icon
-          ? ({
-              "--icon-width": `${width.icon}px`,
-              "--full-width": `${width.full}px`,
-              ...props.style,
-            } as React.CSSProperties)
-          : props.style
+        {
+          "--icon-width": `${width.icon}px`,
+          "--full-width": `${width.full}px`,
+        } as React.CSSProperties
       }
     >
-      {props.icon ? (
-        <div ref={iconRef} className={styles["icon"]}>
-          {props.icon}
-        </div>
-      ) : null}
-      <div className={props.icon ? styles["text"] : undefined} ref={textRef}>
+      <div ref={iconRef} className={styles["icon"]}>
+        {props.icon}
+      </div>
+      <div className={styles["text"]} ref={textRef}>
         {props.text}
       </div>
-      {props.innerNode}
     </div>
   );
 }
@@ -425,20 +409,11 @@ export function ChatActions(props: {
   showPromptModal: () => void;
   scrollToBottom: () => void;
   showPromptHints: () => void;
-  imageSelected: (img: any) => void;
   hitBottom: boolean;
 }) {
   const config = useAppConfig();
   const navigate = useNavigate();
   const chatStore = useChatStore();
-
-  // switch Plugins
-  const usePlugins = chatStore.currentSession().mask.usePlugins;
-  function switchUsePlugins() {
-    chatStore.updateCurrentSession((session) => {
-      session.mask.usePlugins = !session.mask.usePlugins;
-    });
-  }
 
   // switch themes
   const theme = config.theme;
@@ -453,25 +428,6 @@ export function ChatActions(props: {
   // stop all responses
   const couldStop = ChatControllerPool.hasPending();
   const stopAll = () => ChatControllerPool.stopAll();
-
-  function selectImage() {
-    document.getElementById("chat-image-file-select-upload")?.click();
-  }
-
-  function closeImageButton() {
-    document.getElementById("chat-input-image-close")?.click();
-  }
-
-  const onImageSelected = async (e: any) => {
-    const file = e.target.files[0];
-    const api = new ClientApi();
-    const fileName = await api.file.upload(file);
-    props.imageSelected({
-      fileName,
-      fileUrl: `/api/file/${fileName}`,
-    });
-    e.target.value = null;
-  };
 
   // switch model
   const currentModel = chatStore.currentSession().mask.modelConfig.model;
@@ -493,157 +449,101 @@ export function ChatActions(props: {
       );
       showToast(nextModel);
     }
-    const onPaste = (event: ClipboardEvent) => {
-      const items = event.clipboardData?.items || [];
-      const api = new ClientApi();
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf("image") === -1) continue;
-        const file = items[i].getAsFile();
-        if (file !== null) {
-          api.file.upload(file).then((fileName) => {
-            props.imageSelected({
-              fileName,
-              fileUrl: `/api/file/${fileName}`,
-            });
-          });
-        }
-      }
-    };
-    if (currentModel === "gpt-4-vision-preview") {
-      window.addEventListener("paste", onPaste);
-      return () => {
-        window.removeEventListener("paste", onPaste);
-      };
-    }
-  }, [chatStore, currentModel, models, props]);
+  }, [chatStore, currentModel, models]);
 
   return (
     <div className={styles["chat-input-actions"]}>
-      <div>
-        {couldStop && (
-          <ChatAction
-            onClick={stopAll}
-            text={Locale.Chat.InputActions.Stop}
-            icon={<StopIcon />}
-          />
-        )}
-        {!props.hitBottom && (
-          <ChatAction
-            onClick={props.scrollToBottom}
-            text={Locale.Chat.InputActions.ToBottom}
-            icon={<BottomIcon />}
-          />
-        )}
-        {props.hitBottom && (
-          <ChatAction
-            onClick={props.showPromptModal}
-            text={Locale.Chat.InputActions.Settings}
-            icon={<SettingsIcon />}
-          />
-        )}
-
+      {couldStop && (
         <ChatAction
-          onClick={nextTheme}
-          text={Locale.Chat.InputActions.Theme[theme]}
-          icon={
-            <>
-              {theme === Theme.Auto ? (
-                <AutoIcon />
-              ) : theme === Theme.Light ? (
-                <LightIcon />
-              ) : theme === Theme.Dark ? (
-                <DarkIcon />
-              ) : null}
-            </>
-          }
+          onClick={stopAll}
+          text={Locale.Chat.InputActions.Stop}
+          icon={<StopIcon />}
         />
-
+      )}
+      {!props.hitBottom && (
         <ChatAction
-          onClick={props.showPromptHints}
-          text={Locale.Chat.InputActions.Prompt}
-          icon={<PromptIcon />}
+          onClick={props.scrollToBottom}
+          text={Locale.Chat.InputActions.ToBottom}
+          icon={<BottomIcon />}
         />
-
+      )}
+      {props.hitBottom && (
         <ChatAction
-          onClick={() => {
-            navigate(Path.Masks);
-          }}
-          text={Locale.Chat.InputActions.Masks}
-          icon={<MaskIcon />}
+          onClick={props.showPromptModal}
+          text={Locale.Chat.InputActions.Settings}
+          icon={<SettingsIcon />}
         />
+      )}
 
-        <ChatAction
-          onClick={() => setShowModelSelector(true)}
-          text={currentModel}
-          icon={<RobotIcon />}
-        />
+      <ChatAction
+        onClick={nextTheme}
+        text={Locale.Chat.InputActions.Theme[theme]}
+        icon={
+          <>
+            {theme === Theme.Auto ? (
+              <AutoIcon />
+            ) : theme === Theme.Light ? (
+              <LightIcon />
+            ) : theme === Theme.Dark ? (
+              <DarkIcon />
+            ) : null}
+          </>
+        }
+      />
 
-        {config.pluginConfig.enable &&
-          /^gpt(?!.*03\d{2}$).*$/.test(currentModel) &&
-          currentModel != "gpt-4-vision-preview" && (
-            <ChatAction
-              onClick={switchUsePlugins}
-              text={
-                usePlugins
-                  ? Locale.Chat.InputActions.DisablePlugins
-                  : Locale.Chat.InputActions.EnablePlugins
-              }
-              icon={usePlugins ? <EnablePluginIcon /> : <DisablePluginIcon />}
-            />
-          )}
-        {currentModel == "gpt-4-vision-preview" && (
-          <ChatAction
-            onClick={selectImage}
-            text="选择图片"
-            icon={<UploadIcon />}
-            innerNode={
-              <input
-                type="file"
-                accept=".png,.jpg,.webp,.jpeg"
-                id="chat-image-file-select-upload"
-                style={{ display: "none" }}
-                onChange={onImageSelected}
-              />
+      <ChatAction
+        onClick={props.showPromptHints}
+        text={Locale.Chat.InputActions.Prompt}
+        icon={<PromptIcon />}
+      />
+
+      <ChatAction
+        onClick={() => {
+          navigate(Path.Masks);
+        }}
+        text={Locale.Chat.InputActions.Masks}
+        icon={<MaskIcon />}
+      />
+
+      <ChatAction
+        text={Locale.Chat.InputActions.Clear}
+        icon={<BreakIcon />}
+        onClick={() => {
+          chatStore.updateCurrentSession((session) => {
+            if (session.clearContextIndex === session.messages.length) {
+              session.clearContextIndex = undefined;
+            } else {
+              session.clearContextIndex = session.messages.length;
+              session.memoryPrompt = ""; // will clear memory
             }
-          />
-        )}
+          });
+        }}
+      />
 
-        {showModelSelector && (
-          <Selector
-            defaultSelectedValue={currentModel}
-            items={models.map((m) => ({
-              title: m.displayName,
-              value: m.name,
-            }))}
-            onClose={() => setShowModelSelector(false)}
-            onSelection={(s) => {
-              if (s.length === 0) return;
-              chatStore.updateCurrentSession((session) => {
-                session.mask.modelConfig.model = s[0] as ModelType;
-                session.mask.syncGlobalConfig = false;
-                closeImageButton();
-              });
-              showToast(s[0]);
-            }}
-          />
-        )}
-      </div>
-      <div>
-        <ChatAction
-          text={Locale.Chat.InputActions.Clear}
-          icon={<BreakIcon />}
-          onClick={() => {
+      <ChatAction
+        onClick={() => setShowModelSelector(true)}
+        text={currentModel}
+        icon={<RobotIcon />}
+      />
+
+      {showModelSelector && (
+        <Selector
+          defaultSelectedValue={currentModel}
+          items={models.map((m) => ({
+            title: m.displayName,
+            value: m.name,
+          }))}
+          onClose={() => setShowModelSelector(false)}
+          onSelection={(s) => {
+            if (s.length === 0) return;
             chatStore.updateCurrentSession((session) => {
-              if (session.clearContextIndex === session.messages.length) {
-                session.clearContextIndex = undefined;
-              } else {
-                session.clearContextIndex = session.messages.length;
-                session.memoryPrompt = ""; // will clear memory
-              }
+              session.mask.modelConfig.model = s[0] as ModelType;
+              session.mask.syncGlobalConfig = false;
             });
+            showToast(s[0]);
           }}
         />
-      </div>
+      )}
     </div>
   );
 }
@@ -722,7 +622,6 @@ function _Chat() {
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [userInput, setUserInput] = useState("");
-  const [userImage, setUserImage] = useState<any>();
   const [isLoading, setIsLoading] = useState(false);
   const { submitKey, shouldSubmit } = useSubmitHandler();
   const { scrollRef, setAutoScroll, scrollDomToBottom } = useScrollToBottom();
@@ -796,7 +695,7 @@ function _Chat() {
     }
   };
 
-  const doSubmit = (userInput: string, userImage?: any) => {
+  const doSubmit = (userInput: string) => {
     if (userInput.trim() === "") return;
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
@@ -806,14 +705,10 @@ function _Chat() {
       return;
     }
     setIsLoading(true);
-    chatStore
-      .onUserInput(userInput, userImage?.fileUrl)
-      .then(() => setIsLoading(false));
+    chatStore.onUserInput(userInput).then(() => setIsLoading(false));
     localStorage.setItem(LAST_INPUT_KEY, userInput);
-    localStorage.setItem(LAST_INPUT_IMAGE_KEY, userImage);
     setUserInput("");
     setPromptHints([]);
-    setUserImage(null);
     if (!isMobileScreen) inputRef.current?.focus();
     setAutoScroll(true);
   };
@@ -878,12 +773,11 @@ function _Chat() {
       !(e.metaKey || e.altKey || e.ctrlKey)
     ) {
       setUserInput(localStorage.getItem(LAST_INPUT_KEY) ?? "");
-      setUserImage(localStorage.getItem(LAST_INPUT_IMAGE_KEY));
       e.preventDefault();
       return;
     }
     if (shouldSubmit(e) && promptHints.length === 0) {
-      doSubmit(userInput, userImage);
+      doSubmit(userInput);
       e.preventDefault();
     }
   };
@@ -959,9 +853,7 @@ function _Chat() {
 
     // resend the message
     setIsLoading(true);
-    chatStore
-      .onUserInput(userMessage.content, userMessage.image_url)
-      .then(() => setIsLoading(false));
+    chatStore.onUserInput(userMessage.content).then(() => setIsLoading(false));
     inputRef.current?.focus();
   };
 
@@ -1018,7 +910,6 @@ function _Chat() {
                 ...createMessage({
                   role: "user",
                   content: userInput,
-                  image_url: userImage?.fileUrl,
                 }),
                 preview: true,
               },
@@ -1031,7 +922,6 @@ function _Chat() {
     isLoading,
     session.messages,
     userInput,
-    userImage?.fileUrl,
   ]);
 
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
@@ -1157,8 +1047,6 @@ function _Chat() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const textareaMinHeight = userImage ? 121 : 68;
 
   return (
     <div className={styles.chat} key={session.id}>
@@ -1317,7 +1205,7 @@ function _Chat() {
 
                               <ChatAction
                                 text={Locale.Chat.Actions.Delete}
-                                icon={<ClearIcon />}
+                                icon={<DeleteIcon />}
                                 onClick={() => onDelete(message.id ?? i)}
                               />
 
@@ -1337,27 +1225,6 @@ function _Chat() {
                       </div>
                     )}
                   </div>
-                  {!isUser &&
-                    message.toolMessages &&
-                    message.toolMessages.map((tool, index) => (
-                      <div
-                        className={styles["chat-message-tools-status"]}
-                        key={index}
-                      >
-                        <div className={styles["chat-message-tools-name"]}>
-                          <CheckmarkIcon
-                            className={styles["chat-message-checkmark"]}
-                          />
-                          {tool.toolName}:
-                          <code
-                            className={styles["chat-message-tools-details"]}
-                          >
-                            {tool.toolInput}
-                          </code>
-                        </div>
-                      </div>
-                    ))}
-
                   {showTyping && (
                     <div className={styles["chat-message-status"]}>
                       {Locale.Chat.Typing}
@@ -1365,7 +1232,6 @@ function _Chat() {
                   )}
                   <div className={styles["chat-message-item"]}>
                     <Markdown
-                      imageBase64={message.image_url}
                       content={message.content}
                       loading={
                         (message.preview || message.streaming) &&
@@ -1382,19 +1248,7 @@ function _Chat() {
                       defaultShow={i >= messages.length - 6}
                     />
                   </div>
-                  {!isUser && message.model == "gpt-4-vision-preview" && (
-                    <div
-                      className={[
-                        styles["chat-message-actions"],
-                        styles["column-flex"],
-                      ].join(" ")}
-                    >
-                      <div
-                        style={{ marginTop: "6px" }}
-                        className={styles["chat-input-actions"]}
-                      ></div>
-                    </div>
-                  )}
+
                   <div className={styles["chat-message-action-date"]}>
                     {isContext
                       ? Locale.Chat.IsContext
@@ -1426,9 +1280,6 @@ function _Chat() {
             setUserInput("/");
             onSearch("");
           }}
-          imageSelected={(img: any) => {
-            setUserImage(img);
-          }}
         />
         <div className={styles["chat-input-panel-inner"]}>
           <textarea
@@ -1444,41 +1295,14 @@ function _Chat() {
             autoFocus={autoFocus}
             style={{
               fontSize: config.fontSize,
-              minHeight: textareaMinHeight,
             }}
           />
-          {userImage && (
-            <div className={styles["chat-input-image"]}>
-              <div
-                style={{ position: "relative", width: "48px", height: "48px" }}
-              >
-                <Image
-                  loader={() => userImage.fileUrl}
-                  src={userImage.fileUrl}
-                  alt={userImage.filename}
-                  title={userImage.filename}
-                  layout="fill"
-                  objectFit="cover"
-                  objectPosition="center"
-                />
-              </div>
-              <button
-                className={styles["chat-input-image-close"]}
-                id="chat-input-image-close"
-                onClick={() => {
-                  setUserImage(null);
-                }}
-              >
-                <CloseIcon />
-              </button>
-            </div>
-          )}
           <IconButton
             icon={<SendWhiteIcon />}
             text={Locale.Chat.Send}
             className={styles["chat-input-send"]}
             type="primary"
-            onClick={() => doSubmit(userInput, userImage)}
+            onClick={() => doSubmit(userInput)}
           />
         </div>
       </div>

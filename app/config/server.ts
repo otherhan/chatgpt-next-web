@@ -23,13 +23,13 @@ declare global {
       CUSTOM_MODELS?: string; // to control custom models
 
       // azure only
-      AZURE_URL?: string; // https://{azure-url}/openai/deployments
+      AZURE_URL?: string; // https://{azure-url}/openai/deployments/{deploy-name}
       AZURE_API_KEY?: string;
       AZURE_API_VERSION?: string;
 
       // google only
       GOOGLE_API_KEY?: string;
-      GOOGLE_BASE_URL?: string;
+      GOOGLE_URL?: string;
     }
   }
 }
@@ -87,7 +87,7 @@ export const getServerSideConfig = () => {
 
     isGoogle,
     googleApiKey: process.env.GOOGLE_API_KEY,
-    googleBaseUrl: process.env.GOOGLE_BASE_URL,
+    googleUrl: process.env.GOOGLE_URL,
 
     needCode: ACCESS_CODES.size > 0,
     code: process.env.CODE,
