@@ -1,21 +1,14 @@
 import { SubmitKey } from "../store/config";
 import type { PartialLocaleType } from "./index";
 import { getClientConfig } from "../config/client";
-import { SAAS_CHAT_UTM_URL } from "@/app/constant";
 const isApp = !!getClientConfig()?.isApp;
 
 const de: PartialLocaleType = {
   WIP: "In Bearbeitung...",
   Error: {
     Unauthorized: isApp
-      ? `😆 Das Gespräch hatte einige Probleme, keine Sorge:
-    \\ 1️⃣ Wenn du ohne Konfiguration sofort starten möchtest, [klicke hier, um sofort zu chatten 🚀](${SAAS_CHAT_UTM_URL})
-    \\ 2️⃣ Wenn du deine eigenen OpenAI-Ressourcen verwenden möchtest, klicke [hier](/#/settings), um die Einstellungen zu ändern ⚙️`
-      : `😆 Das Gespräch hatte einige Probleme, keine Sorge:
-    \ 1️⃣ Wenn du ohne Konfiguration sofort starten möchtest, [klicke hier, um sofort zu chatten 🚀](${SAAS_CHAT_UTM_URL})
-    \ 2️⃣ Wenn du eine private Bereitstellung verwendest, klicke [hier](/#/auth), um den Zugriffsschlüssel einzugeben 🔑
-    \ 3️⃣ Wenn du deine eigenen OpenAI-Ressourcen verwenden möchtest, klicke [hier](/#/settings), um die Einstellungen zu ändern ⚙️
- `,
+      ? "Ungültiger API-Schlüssel erkannt. Bitte gehen Sie zur [Einstellungen](/#/settings) Seite, um zu überprüfen, ob der API-Schlüssel korrekt konfiguriert ist."
+      : "Das Passwort ist falsch oder leer. Bitte gehen Sie zur [Login](/#/auth) Seite, um das richtige Passwort einzugeben, oder fügen Sie Ihren OpenAI API-Schlüssel auf der [Einstellungen](/#/settings) Seite hinzu.",
   },
   Auth: {
     Title: "Passwort erforderlich",
